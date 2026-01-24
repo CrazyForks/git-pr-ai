@@ -28,7 +28,6 @@ git ai-commit --jira PROJ-123
 - **3 Options to Choose**: Provides 3 different commit message options with varying levels of detail
 - **Conventional Commits**: Follows commitlint conventional commit format
 - **Commit Type Selection**: Choose the commit type before generating messages
-- **Smart Staging**: Automatically stages changes if nothing is staged yet
 - **Context-Aware**: Generates messages that explain WHAT changed and WHY
 - **Optional Prompt**: Use a short prompt to add extra context for the AI
 - **JIRA Shortcut (Optional)**: Skip AI and commit directly from a JIRA ticket
@@ -60,11 +59,10 @@ git ai-commit
 
 # Run ai-commit directly
 git ai-commit
-# → Detects no staged changes
-# → Analyzes all unstaged changes
+# → Requires staged changes (errors if none are staged)
 # → Select a commit type (feat/fix/etc.)
 # → Generates 3 commit message options
-# → After selection, automatically stages all changes and creates commit
+# → After selection, creates commit from your staged changes
 ```
 
 ### With Additional Context
@@ -93,6 +91,9 @@ When using `--jira`, the command skips AI and generates a commit message like:
 
 link: <jira-url>
 ```
+
+If JIRA details cannot be fetched, the title falls back to the ticket key.
+The `link:` line is included only when a JIRA base URL is available.
 
 ## Commit Message Types
 

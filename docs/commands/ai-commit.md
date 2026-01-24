@@ -15,6 +15,10 @@ git ai-commit "explain why the change was needed"
 ```
 
 ```bash
+git ai-commit --jira
+```
+
+```bash
 git ai-commit --jira PROJ-123
 ```
 
@@ -23,10 +27,11 @@ git ai-commit --jira PROJ-123
 - **AI-Powered Analysis**: Analyzes your git diff to understand what changed
 - **3 Options to Choose**: Provides 3 different commit message options with varying levels of detail
 - **Conventional Commits**: Follows commitlint conventional commit format
+- **Commit Type Selection**: Choose the commit type before generating messages
 - **Smart Staging**: Automatically stages changes if nothing is staged yet
 - **Context-Aware**: Generates messages that explain WHAT changed and WHY
 - **Optional Prompt**: Use a short prompt to add extra context for the AI
-- **JIRA-Aware**: Include a ticket key to add `[TICKET-123]` in commit messages
+- **JIRA Shortcut (Optional)**: Skip AI and commit directly from a JIRA ticket
 
 ## Examples
 
@@ -38,6 +43,7 @@ git add src/auth.ts src/login.ts
 
 # Generate and select commit message
 git ai-commit
+# → Select a commit type (feat/fix/etc.)
 # → AI analyzes your changes and generates 3 options:
 #   1. feat: add user authentication module
 #   2. feat: implement login and signup functionality
@@ -56,6 +62,7 @@ git ai-commit
 git ai-commit
 # → Detects no staged changes
 # → Analyzes all unstaged changes
+# → Select a commit type (feat/fix/etc.)
 # → Generates 3 commit message options
 # → After selection, automatically stages all changes and creates commit
 ```
@@ -71,17 +78,25 @@ git ai-commit "align error handling with upstream API changes"
 ### With JIRA Ticket
 
 ```bash
-# Add a JIRA ticket ID or URL
+# Use JIRA ticket from branch name
+git ai-commit --jira
+
+# Provide a JIRA ticket ID or URL
 git ai-commit --jira SL-1234
-# Or provide a full JIRA URL
 git ai-commit --jira https://your-company.atlassian.net/browse/SL-1234
-# → AI includes the ticket in commit messages:
-#   fix: [SL-1234] <jira-title>
+```
+
+When using `--jira`, the command skips AI and generates a commit message like:
+
+```
+<type>: [<jira-id>] <jira-title>
+
+link: <jira-url>
 ```
 
 ## Commit Message Types
 
-The AI automatically selects the appropriate commit type based on your changes:
+You choose the commit type before message generation:
 
 | Type       | Description              | Example                               |
 | ---------- | ------------------------ | ------------------------------------- |

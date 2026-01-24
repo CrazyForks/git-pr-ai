@@ -1,20 +1,43 @@
-type JiraContext = {
-  ticketKey: string
-  title?: string | null
+export type CommitJiraContext = {
+  key: string
+  summary?: string
+  description?: string
+  issueType?: string
+  priority?: string
+  status?: string
+  assignee?: string
+  labels?: string[]
+  browseUrl?: string
+  source: 'branch' | 'api'
+}
+
+function formatJiraContext(context: CommitJiraContext | null): string {
+  if (!context) return ''
+
+  const lines = [
+    `JIRA key: ${context.key}`,
+    context.summary ? `Summary: ${context.summary}` : null,
+    context.description ? `Description: ${context.description}` : null,
+    context.issueType ? `Issue type: ${context.issueType}` : null,
+    context.labels && context.labels.length > 0
+      ? `Labels: ${context.labels.join(', ')}`
+      : null,
+  ].filter(Boolean)
+
+  return `JIRA context:\n${lines.join('\n')}\n\n`
 }
 
 export const createCommitMessagePrompt = (
   gitDiff: string,
+  commitType: string,
   userPrompt?: string,
-  jira?: JiraContext,
+  jiraContext: CommitJiraContext | null = null,
 ) => {
   const trimmedPrompt = userPrompt?.trim()
   const contextBlocks: string[] = []
 
-  if (jira) {
-    contextBlocks.push(
-      `JIRA Ticket: ${jira.ticketKey}\nJIRA Title: ${jira.title || 'Not available'}`,
-    )
+  if (jiraContext) {
+    contextBlocks.push(formatJiraContext(jiraContext).trimEnd())
   }
 
   if (trimmedPrompt) {
@@ -30,27 +53,16 @@ export const createCommitMessagePrompt = (
 ${gitDiff}
 
 ${extraContext}
+Commit type selected: ${commitType}
+
 Please analyze the changes and provide 3 commit message options with different approaches:
-1. An appropriate commit type prefix following commitlint conventional types:
-   - feat: new features
-   - fix: bug fixes
-   - docs: documentation changes
-   - style: formatting changes
-   - refactor: code refactoring
-   - perf: performance improvements
-   - test: adding/updating tests
-   - chore: maintenance tasks
-   - ci: CI/CD changes
-   - build: build system changes
-2. Three commit messages following the format: {type}: {description}
+1. Three commit messages following the format: {type}: {description}
    - Option 1: Most concise and direct description
    - Option 2: Alternative wording with more context
    - Option 3: Most detailed description
 
 Requirements:
-- Choose the commit type based on the changes shown in the diff
-- If a JIRA Ticket is provided, use this exact format for every option:
-  {type}: [TICKET-123] {JIRA_TITLE}
+- Use the selected commit type (${commitType}) for all options
 - Keep the description clear and concise (max 72 characters)
 - Use imperative mood (e.g., "add feature" not "adds feature" or "added feature")
 - Do not end the subject line with a period

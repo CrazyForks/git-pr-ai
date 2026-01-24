@@ -1,5 +1,11 @@
 # git-pr-ai
 
+## 1.15.0
+
+### Minor Changes
+
+- 2cf4ec4: Update `git ai-commit` to support a JIRA-only commit flow, require explicit commit type selection, and refresh prompts/docs around JIRA context and staging behavior.
+
 ## 1.14.0
 
 ### Minor Changes

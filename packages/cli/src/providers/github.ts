@@ -320,7 +320,8 @@ export class GitHubProvider implements GitProvider {
     if (useWeb) {
       await $`gh pr create --title ${title} --base ${baseBranch} --head ${branch} --web`
     } else {
-      await $`gh pr create --title ${title} --base ${baseBranch} --head ${branch}`
+      // `zx` runs `gh` in non-interactive mode, so we must provide a body explicitly.
+      await $`gh pr create --title ${title} --body "" --base ${baseBranch} --head ${branch}`
     }
     spinner.succeed('Pull Request created successfully!')
   }

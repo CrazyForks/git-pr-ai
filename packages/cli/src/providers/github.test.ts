@@ -483,7 +483,7 @@ describe('GitHubProvider', () => {
     const executedCommands = setupCommandMock((command) => {
       if (
         command ===
-        'gh pr create --title feat: add login --base main --head feat/add-login'
+        'gh pr create --title feat: add login --body "" --base main --head feat/add-login'
       ) {
         return { stdout: '' }
       }
@@ -496,7 +496,7 @@ describe('GitHubProvider', () => {
 
     expect(
       executedCommands.includes(
-        'gh pr create --title feat: add login --base main --head feat/add-login',
+        'gh pr create --title feat: add login --body "" --base main --head feat/add-login',
       ),
     ).toBe(true)
   })

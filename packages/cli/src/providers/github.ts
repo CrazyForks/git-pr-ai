@@ -2,6 +2,7 @@ import { $ } from 'zx'
 import ora from 'ora'
 import fs from 'fs/promises'
 import {
+  CreatePROptions,
   GitProvider,
   PR,
   ReviewOptions,
@@ -311,9 +312,17 @@ export class GitHubProvider implements GitProvider {
     title: string,
     branch: string,
     baseBranch: string,
+    options: CreatePROptions = {},
   ): Promise<void> {
     const spinner = ora('Creating Pull Request...').start()
-    await $`gh pr create --title ${title} --base ${baseBranch} --head ${branch} --web`
+    const useWeb = options.web !== false
+
+    if (useWeb) {
+      await $`gh pr create --title ${title} --base ${baseBranch} --head ${branch} --web`
+    } else {
+      // `zx` runs `gh` in non-interactive mode, so we must provide a body explicitly.
+      await $`gh pr create --title ${title} --body "" --base ${baseBranch} --head ${branch}`
+    }
     spinner.succeed('Pull Request created successfully!')
   }
 

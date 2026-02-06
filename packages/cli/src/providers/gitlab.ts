@@ -2,6 +2,7 @@ import { $ } from 'zx'
 import ora from 'ora'
 import fs from 'fs/promises'
 import {
+  CreatePROptions,
   GitProvider,
   PR,
   ReviewOptions,
@@ -92,9 +93,16 @@ export class GitLabProvider implements GitProvider {
     title: string,
     branch: string,
     baseBranch: string,
+    options: CreatePROptions = {},
   ): Promise<void> {
     const spinner = ora('Creating Merge Request...').start()
-    await $`glab mr create --title ${title} --target-branch ${baseBranch} --source-branch ${branch} --description "" --web`
+    const useWeb = options.web !== false
+
+    if (useWeb) {
+      await $`glab mr create --title ${title} --target-branch ${baseBranch} --source-branch ${branch} --description "" --web`
+    } else {
+      await $`glab mr create --title ${title} --target-branch ${baseBranch} --source-branch ${branch} --description ""`
+    }
     spinner.succeed('Merge Request created successfully!')
   }
 

@@ -19,6 +19,7 @@ function setupCommander() {
       'Smart Pull Request Creator - Creates new PR or opens existing one',
     )
     .option('-j, --jira <ticket>', 'specify JIRA ticket ID manually')
+    .option('--no-web', 'create PR/MR directly without opening web flow')
     .addHelpText(
       'after',
       `
@@ -28,6 +29,9 @@ Examples:
 
   $ git open-pr --jira PROJ-123
     Create a PR with specific JIRA ticket ID
+
+  $ git open-pr --no-web
+    Create PR directly in CLI without web confirmation
 
 Features:
   - Automatically detects JIRA tickets from branch names (optional)
@@ -49,13 +53,20 @@ Prerequisites:
 async function main() {
   const program = setupCommander()
 
-  program.action(async (options: { jira?: string }) => {
+  program.action(async (options: { jira?: string; web?: boolean }) => {
     try {
       // Check for version updates
       await checkAndUpgrade()
 
       await checkGitCLI()
       const provider = await getCurrentProvider()
+
+      // Existing PR path should return fast and skip branch/JIRA work.
+      const existingPrUrl = await provider.checkExistingPR()
+      if (existingPrUrl) {
+        await provider.openPR()
+        return
+      }
 
       const currentBranch = await getCurrentBranch()
       let jiraTicket = options.jira || extractJiraTicket(currentBranch)
@@ -82,14 +93,6 @@ async function main() {
         console.log(`Branch: ${currentBranch}`)
       }
 
-      // Check if PR already exists for current branch
-      const existingPrUrl = await provider.checkExistingPR()
-
-      if (existingPrUrl) {
-        await provider.openPR()
-        return
-      }
-
       // Create new PR if none exists
       const baseBranch = await getDefaultBranch()
       let prTitle = convertBranchNameToPRTitle(currentBranch)
@@ -102,7 +105,9 @@ async function main() {
         }
       }
 
-      await provider.createPR(prTitle, currentBranch, baseBranch)
+      await provider.createPR(prTitle, currentBranch, baseBranch, {
+        web: options.web !== false,
+      })
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error)

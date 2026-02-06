@@ -404,6 +404,59 @@ describe('GitHubProvider', () => {
     expect(executedCommands[2]).toContain('--repo alice/fork-repo')
   })
 
+  it('getPRDetails with number rethrows non-not-found errors during repo probing', async () => {
+    const provider = new GitHubProvider()
+    const executedCommands = setupCommandMock((command) => {
+      if (
+        command === 'gh repo view --json nameWithOwner,owner,name,isFork,parent'
+      ) {
+        return {
+          stdout: JSON.stringify({
+            nameWithOwner: 'alice/fork-repo',
+            owner: { login: 'alice' },
+            name: 'fork-repo',
+            isFork: true,
+            parent: {
+              nameWithOwner: 'org/main-repo',
+              owner: { login: 'org' },
+              name: 'main-repo',
+            },
+          }),
+        }
+      }
+      if (
+        command ===
+        'gh pr view 123 --repo org/main-repo --json number,title,url,baseRefName,headRefName,state,author'
+      ) {
+        throw new Error('gh auth failed')
+      }
+      if (
+        command ===
+        'gh pr view 123 --repo alice/fork-repo --json number,title,url,baseRefName,headRefName,state,author'
+      ) {
+        return {
+          stdout: JSON.stringify({
+            number: 123,
+            title: 'Should not be reached',
+            url: 'https://github.com/alice/fork-repo/pull/123',
+            baseRefName: 'main',
+            headRefName: 'feat/fork-branch',
+            state: 'OPEN',
+            author: { login: 'alice' },
+          }),
+        }
+      }
+      throw new Error(`Unexpected command: ${command}`)
+    })
+
+    await expect(provider.getPRDetails('123')).rejects.toThrow('gh auth failed')
+    expect(
+      executedCommands.some((command) =>
+        command.includes('--repo alice/fork-repo'),
+      ),
+    ).toBe(false)
+  })
+
   it('getPRDetails without args throws clear error when no PR found', async () => {
     const provider = new GitHubProvider()
 

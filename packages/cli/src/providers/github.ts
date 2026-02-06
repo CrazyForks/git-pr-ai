@@ -393,8 +393,12 @@ export class GitHubProvider implements GitProvider {
         try {
           const prData = await this.getPRView(prNumberOrUrl, targetRepo)
           return this.toPRDetails(prData, targetRepo)
-        } catch {
-          // Continue to next target repository
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error)
+          if (message.toLowerCase().includes('no pull requests found')) {
+            continue
+          }
+          throw error
         }
       }
 

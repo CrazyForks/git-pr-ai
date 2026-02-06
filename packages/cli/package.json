@@ -20,6 +20,7 @@
     "package.json"
   ],
   "scripts": {
+    "dev": "tsdown --watch",
     "build": "tsdown",
     "postinstall": "test -f dist/postinstall.js && node dist/postinstall.js || echo 'Skipping git alias setup during build'",
     "test": "vitest",

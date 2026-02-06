@@ -30,8 +30,8 @@
     "type-check": "tsc --noEmit",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
-    "format": "prettier --write .",
-    "format:check": "prettier --check . --experimental-cli"
+    "format": "oxfmt --write .",
+    "format:check": "oxfmt --check ."
   },
   "keywords": [
     "git",
@@ -67,8 +67,8 @@
   "devDependencies": {
     "@types/node": "^24.1.0",
     "@vitest/ui": "^2.1.8",
+    "oxfmt": "^0.28.0",
     "oxlint": "^1.9.0",
-    "prettier": "^3.6.2",
     "tsdown": "^0.13.2",
     "typescript": "^5.9.2",
     "vitest": "^2.1.8"

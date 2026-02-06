@@ -7,7 +7,6 @@
 
 **[Read the Docs](https://leochiu-a.github.io/git-pr-ai)**
 
-
 ## Key Features
 
 - **AI-Powered Intelligence**: Harness Claude Code, Gemini AI, Cursor Agent, or Codex to transform mundane git tasks into intelligent, context-aware workflows that understand your code and intentions.

@@ -457,6 +457,50 @@ describe('GitHubProvider', () => {
     ).toBe(false)
   })
 
+  it('createPR uses web flow by default', async () => {
+    const provider = new GitHubProvider()
+    const executedCommands = setupCommandMock((command) => {
+      if (
+        command ===
+        'gh pr create --title feat: add login --base main --head feat/add-login --web'
+      ) {
+        return { stdout: '' }
+      }
+      throw new Error(`Unexpected command: ${command}`)
+    })
+
+    await provider.createPR('feat: add login', 'feat/add-login', 'main')
+
+    expect(
+      executedCommands.includes(
+        'gh pr create --title feat: add login --base main --head feat/add-login --web',
+      ),
+    ).toBe(true)
+  })
+
+  it('createPR skips web flow when web option is false', async () => {
+    const provider = new GitHubProvider()
+    const executedCommands = setupCommandMock((command) => {
+      if (
+        command ===
+        'gh pr create --title feat: add login --base main --head feat/add-login'
+      ) {
+        return { stdout: '' }
+      }
+      throw new Error(`Unexpected command: ${command}`)
+    })
+
+    await provider.createPR('feat: add login', 'feat/add-login', 'main', {
+      web: false,
+    })
+
+    expect(
+      executedCommands.includes(
+        'gh pr create --title feat: add login --base main --head feat/add-login',
+      ),
+    ).toBe(true)
+  })
+
   it('getPRDetails without args throws clear error when no PR found', async () => {
     const provider = new GitHubProvider()
 

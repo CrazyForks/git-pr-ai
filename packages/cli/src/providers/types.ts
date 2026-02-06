@@ -15,7 +15,12 @@ export interface GitProvider {
   openPR(): Promise<void>
 
   /** Create a new PR/MR with the specified title and branch configuration */
-  createPR(title: string, branch: string, baseBranch: string): Promise<void>
+  createPR(
+    title: string,
+    branch: string,
+    baseBranch: string,
+    options?: CreatePROptions,
+  ): Promise<void>
 
   /** Update PR/MR description (deprecated - use updateDescription instead) */
   updatePRDescription(prNumber?: string): Promise<void>
@@ -121,6 +126,11 @@ export interface ReviewOptions {
   requestChanges?: boolean
   /** Review comment text */
   comment?: string
+}
+
+export interface CreatePROptions {
+  /** Whether to open provider web flow while creating PR/MR */
+  web?: boolean
 }
 
 /** Supported Git hosting provider types */

@@ -10,8 +10,231 @@ import {
   IssueDetails,
 } from './types'
 
+interface GitHubRepoRef {
+  owner: string
+  name: string
+  fullName: string
+}
+
+interface GitHubRepoContext {
+  current: GitHubRepoRef
+  isFork: boolean
+  parent: GitHubRepoRef | null
+}
+
+interface GitHubPRListItem {
+  number: number
+  url: string
+  headRefName: string
+  headRepositoryOwner?: { login: string } | null
+}
+
+interface GitHubPRReference {
+  number: string
+  url: string
+  repo: GitHubRepoRef
+}
+
+interface FindOpenPRResult {
+  pr: GitHubPRReference | null
+  branchName: string
+  searchedRepos: string[]
+}
+
+interface GitHubPRViewData {
+  number: number
+  title: string
+  url: string
+  baseRefName: string
+  headRefName: string
+  state: string
+  author: { login: string }
+}
+
 export class GitHubProvider implements GitProvider {
   name = 'GitHub'
+
+  /**
+   * Parse PR URL into explicit repo + PR number.
+   * In fork workflows, local repo and PR target repo may differ.
+   * Returning owner/repo here allows downstream calls to always pass `--repo`
+   * and avoid accidental resolution in the current working repository.
+   */
+  private parseGitHubPRUrl(prUrl: string): {
+    repo: GitHubRepoRef
+    number: string
+  } {
+    const githubPattern =
+      /https:\/\/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)(?:\/.*)?$/
+    const match = prUrl.match(githubPattern)
+
+    if (!match) {
+      throw new Error(
+        'Invalid GitHub PR URL format. Expected: https://github.com/owner/repo/pull/123',
+      )
+    }
+
+    const owner = match[1]
+    const name = match[2]
+    const number = match[3]
+
+    return {
+      repo: {
+        owner,
+        name,
+        fullName: `${owner}/${name}`,
+      },
+      number,
+    }
+  }
+
+  /**
+   * Decide repository search order for PR lookup.
+   * For fork-based flows, upstream is checked first to avoid selecting a same-branch
+   * PR in the fork by mistake. Non-fork repositories only search the current repo.
+   */
+  private getPRSearchTargets(repoContext: GitHubRepoContext): GitHubRepoRef[] {
+    if (repoContext.isFork && repoContext.parent) {
+      return [repoContext.parent, repoContext.current]
+    }
+    return [repoContext.current]
+  }
+
+  /**
+   * Load current repository + fork parent context from GitHub.
+   * This provides both the current repo identity and possible upstream target,
+   * which is required for deterministic cross-repo PR resolution.
+   */
+  private async getRepoContext(): Promise<GitHubRepoContext> {
+    const result =
+      await $`gh repo view --json nameWithOwner,owner,name,isFork,parent`
+    const repoData = JSON.parse(result.stdout) as {
+      nameWithOwner: string
+      owner: { login: string }
+      name: string
+      isFork: boolean
+      parent?: {
+        nameWithOwner?: string
+        owner?: { login: string }
+        name?: string
+      } | null
+    }
+
+    const current: GitHubRepoRef = {
+      owner: repoData.owner.login,
+      name: repoData.name,
+      fullName: repoData.nameWithOwner,
+    }
+
+    let parent: GitHubRepoRef | null = null
+    if (repoData.parent?.nameWithOwner) {
+      const [owner = '', name = ''] = repoData.parent.nameWithOwner.split('/')
+      if (owner && name) {
+        parent = {
+          owner,
+          name,
+          fullName: repoData.parent.nameWithOwner,
+        }
+      }
+    } else if (repoData.parent?.owner?.login && repoData.parent?.name) {
+      // Keep a fallback path because different hosts/versions may not always return nameWithOwner.
+      parent = {
+        owner: repoData.parent.owner.login,
+        name: repoData.parent.name,
+        fullName: `${repoData.parent.owner.login}/${repoData.parent.name}`,
+      }
+    }
+
+    return {
+      current,
+      isFork: repoData.isFork,
+      parent,
+    }
+  }
+
+  /**
+   * Find the open PR for the current branch with fork-aware, cross-repo lookup.
+   * The lookup scans [upstream, current] when on a fork, then returns the first
+   * branch+owner match. This avoids false positives when branch names overlap.
+   */
+  private async findOpenPRForCurrentBranch(): Promise<FindOpenPRResult> {
+    const currentBranch = await $`git rev-parse --abbrev-ref HEAD`
+    const branchName = currentBranch.stdout.trim()
+
+    const repoContext = await this.getRepoContext()
+    const searchTargets = this.getPRSearchTargets(repoContext)
+
+    for (const targetRepo of searchTargets) {
+      const result =
+        await $`gh pr list --state open --repo ${targetRepo.fullName} --head ${branchName} --json number,url,headRefName,headRepositoryOwner --limit 100`
+      const prs = JSON.parse(result.stdout) as GitHubPRListItem[]
+
+      // `gh pr list --head` cannot use "<owner>:<branch>" syntax.
+      // In fork workflows this can return PRs from other owners with the same branch name.
+      // We explicitly pin the branch owner to current repo owner to avoid false matches.
+      const matchingPR = prs.find((pr) => {
+        return (
+          pr.headRefName === branchName &&
+          pr.headRepositoryOwner?.login?.toLowerCase() ===
+            repoContext.current.owner.toLowerCase()
+        )
+      })
+
+      if (matchingPR) {
+        return {
+          pr: {
+            number: String(matchingPR.number),
+            url: matchingPR.url,
+            repo: targetRepo,
+          },
+          branchName,
+          searchedRepos: searchTargets.map((repo) => repo.fullName),
+        }
+      }
+    }
+
+    return {
+      pr: null,
+      branchName,
+      // Keep searched repos for actionable error messages in callers.
+      searchedRepos: searchTargets.map((repo) => repo.fullName),
+    }
+  }
+
+  /**
+   * Read PR details from a specific repository.
+   * Always pass `--repo` to keep resolution explicit and independent from cwd context.
+   */
+  private async getPRView(
+    prNumberOrBranch: string,
+    repo: GitHubRepoRef,
+  ): Promise<GitHubPRViewData> {
+    const prResult =
+      await $`gh pr view ${prNumberOrBranch} --repo ${repo.fullName} --json number,title,url,baseRefName,headRefName,state,author`
+    return JSON.parse(prResult.stdout) as GitHubPRViewData
+  }
+
+  /**
+   * Convert gh PR payload to our provider-neutral PRDetails model.
+   * Repository identity is taken from the resolved target repo to keep downstream
+   * commands aligned with the actual PR location.
+   */
+  private toPRDetails(
+    prData: GitHubPRViewData,
+    repo: GitHubRepoRef,
+  ): PRDetails {
+    return {
+      number: prData.number.toString(),
+      title: prData.title,
+      url: prData.url,
+      baseBranch: prData.baseRefName,
+      headBranch: prData.headRefName,
+      owner: repo.owner,
+      repo: repo.name,
+      state: prData.state.toLowerCase() as PRDetails['state'],
+      author: prData.author.login,
+    }
+  }
 
   async checkCLI(): Promise<void> {
     try {
@@ -56,17 +279,8 @@ export class GitHubProvider implements GitProvider {
 
   async checkExistingPR(): Promise<string | null> {
     try {
-      const currentBranch = await $`git rev-parse --abbrev-ref HEAD`
-      const branchName = currentBranch.stdout.trim()
-
-      const result =
-        await $`gh pr list --state open --head ${branchName} --json url --limit 1`
-      const prs = JSON.parse(result.stdout)
-
-      if (prs.length > 0) {
-        return prs[0].url
-      }
-      return null
+      const result = await this.findOpenPRForCurrentBranch()
+      return result.pr?.url ?? null
     } catch {
       return null
     }
@@ -74,10 +288,22 @@ export class GitHubProvider implements GitProvider {
 
   async openPR(): Promise<void> {
     const spinner = ora('Opening existing Pull Request...').start()
-    await $`gh pr view --web`
-    const result = await $`gh pr view --json url`
-    const { url } = JSON.parse(result.stdout)
-    spinner.succeed(`Opened PR: ${url}`)
+    try {
+      const prUrl = await this.checkExistingPR()
+      if (!prUrl) {
+        throw new Error(
+          'No open Pull Request found for the current branch. Please create one first.',
+        )
+      }
+
+      await $`gh pr view ${prUrl} --web`
+      const result = await $`gh pr view ${prUrl} --json url`
+      const { url } = JSON.parse(result.stdout) as { url: string }
+      spinner.succeed(`Opened PR: ${url}`)
+    } catch (error) {
+      spinner.fail('Failed to open Pull Request')
+      throw error
+    }
   }
 
   async createPR(
@@ -150,40 +376,47 @@ export class GitHubProvider implements GitProvider {
   }
 
   async getPRDetails(prNumberOrUrl?: string): Promise<PRDetails> {
-    let prNumber = prNumberOrUrl
+    // URL input should be treated as authoritative target repo, never inferred from cwd.
+    if (prNumberOrUrl?.startsWith('http')) {
+      const parsedPR = this.parseGitHubPRUrl(prNumberOrUrl)
+      const prData = await this.getPRView(parsedPR.number, parsedPR.repo)
+      return this.toPRDetails(prData, parsedPR.repo)
+    }
 
-    // If it looks like a URL, extract the PR number
-    if (prNumberOrUrl && prNumberOrUrl.startsWith('http')) {
-      const githubPattern = /https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/(\d+)/
-      const match = prNumberOrUrl.match(githubPattern)
-      if (!match) {
-        throw new Error(
-          'Invalid GitHub PR URL format. Expected: https://github.com/owner/repo/pull/123',
-        )
+    if (prNumberOrUrl) {
+      const repoContext = await this.getRepoContext()
+      const searchTargets = this.getPRSearchTargets(repoContext)
+
+      // Number-only input is ambiguous in fork workflows, so we try in deterministic order.
+      for (const targetRepo of searchTargets) {
+        try {
+          const prData = await this.getPRView(prNumberOrUrl, targetRepo)
+          return this.toPRDetails(prData, targetRepo)
+        } catch {
+          // Continue to next target repository
+        }
       }
-      prNumber = match[1]
+
+      throw new Error(
+        `No pull request found for "${prNumberOrUrl}" in repositories: ${searchTargets
+          .map((repo) => repo.fullName)
+          .join(', ')}`,
+      )
     }
 
-    const prResult = prNumber
-      ? await $`gh pr view ${prNumber} --json number,title,url,baseRefName,headRefName,state,author`
-      : await $`gh pr view --json number,title,url,baseRefName,headRefName,state,author`
-
-    const repoResult = await $`gh repo view --json owner,name`
-
-    const prData = JSON.parse(prResult.stdout)
-    const repoData = JSON.parse(repoResult.stdout)
-
-    return {
-      number: prData.number.toString(),
-      title: prData.title,
-      url: prData.url,
-      baseBranch: prData.baseRefName,
-      headBranch: prData.headRefName,
-      owner: repoData.owner.login,
-      repo: repoData.name,
-      state: prData.state.toLowerCase(),
-      author: prData.author.login,
+    const currentBranchPR = await this.findOpenPRForCurrentBranch()
+    if (!currentBranchPR.pr) {
+      throw new Error(
+        `No open pull request found for branch "${currentBranchPR.branchName}" in repositories: ${currentBranchPR.searchedRepos.join(', ')}`,
+      )
     }
+
+    // No explicit input: resolve by current branch, then fetch details with explicit repo context.
+    const prData = await this.getPRView(
+      currentBranchPR.pr.number,
+      currentBranchPR.pr.repo,
+    )
+    return this.toPRDetails(prData, currentBranchPR.pr.repo)
   }
 
   async getPRDiff(prNumber?: string): Promise<string> {

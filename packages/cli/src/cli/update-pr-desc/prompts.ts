@@ -87,7 +87,13 @@ but write the content in the configured language include all required fields and
   return templateSection
 }
 
-function buildStep3Prompt({ providerName }: { providerName: string }): string {
+function buildStep3Prompt({
+  providerName,
+  prDetails,
+}: {
+  providerName: string
+  prDetails: PRDetails
+}): string {
   return `### Step 3: Update PR
 Save your description to a file and update the PR:
 
@@ -96,7 +102,7 @@ ${
     ? `1. Save the description to description.md file
 2. Update the MR: \`glab mr update --description "$(cat description.md)"\``
     : `1. Save the description to description.md file  
-2. Update the PR: \`gh pr edit --body-file description.md\``
+2. Update the PR: \`gh pr edit ${prDetails.number} --repo ${prDetails.owner}/${prDetails.repo} --body-file description.md\``
 }
 
 IMPORTANT: You must complete all 3 steps above. Do not stop after generating the description - execute the CLI commands to actually update the PR.
@@ -132,7 +138,7 @@ ${buildStep1Prompt()}
 
 ${await buildStep2Prompt({ provider })}
 
-${buildStep3Prompt({ providerName: provider.name })}
+${buildStep3Prompt({ providerName: provider.name, prDetails })}
 `
 
   let finalPrompt = basePrompt

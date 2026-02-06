@@ -234,6 +234,24 @@ describe('GitHubProvider', () => {
     ).toBe(true)
   })
 
+  it('openPR surfaces PR lookup failures instead of masking as missing PR', async () => {
+    const provider = new GitHubProvider()
+
+    setupCommandMock((command) => {
+      if (command === 'git rev-parse --abbrev-ref HEAD') {
+        return { stdout: 'feat/fork-branch\n' }
+      }
+      if (
+        command === 'gh repo view --json nameWithOwner,owner,name,isFork,parent'
+      ) {
+        throw new Error('gh auth failed')
+      }
+      throw new Error(`Unexpected command: ${command}`)
+    })
+
+    await expect(provider.openPR()).rejects.toThrow('gh auth failed')
+  })
+
   it('getPRDetails without args resolves upstream PR and actual repo ownership', async () => {
     const provider = new GitHubProvider()
 

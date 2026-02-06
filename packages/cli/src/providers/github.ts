@@ -289,12 +289,13 @@ export class GitHubProvider implements GitProvider {
   async openPR(): Promise<void> {
     const spinner = ora('Opening existing Pull Request...').start()
     try {
-      const prUrl = await this.checkExistingPR()
-      if (!prUrl) {
+      const currentBranchPR = await this.findOpenPRForCurrentBranch()
+      if (!currentBranchPR.pr) {
         throw new Error(
           'No open Pull Request found for the current branch. Please create one first.',
         )
       }
+      const prUrl = currentBranchPR.pr.url
 
       await $`gh pr view ${prUrl} --web`
       const result = await $`gh pr view ${prUrl} --json url`

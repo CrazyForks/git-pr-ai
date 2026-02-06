@@ -50,7 +50,7 @@ When you have uncommitted changes and want to create a branch:
 # ... modify files ...
 
 # 2. Create branch based on your changes
-git create-branch --git-diff
+git create-branch --diff
 # AI analyzes your changes and suggests: fix/update-user-validation
 
 # 3. Commit your changes
@@ -94,7 +94,7 @@ git create-branch --jira PROJ-456 -m
 # Renames to: feat/PROJ-456-optimize-database-queries
 
 # Or rename based on changes
-git create-branch --git-diff -m
+git create-branch --diff -m
 # Analyzes changes and renames accordingly
 ```
 
@@ -111,7 +111,7 @@ git plan-issue --issue 42
 git take-issue --issue 42
 
 # 3. AI generates appropriate branch name: feat/issue-42-implement-user-dashboard
-git create-branch --git-diff
+git create-branch --diff
 
 # 4. Implement following the plan
 # ... implement the feature according to the plan ...

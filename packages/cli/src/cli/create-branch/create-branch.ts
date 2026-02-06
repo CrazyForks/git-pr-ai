@@ -204,7 +204,8 @@ function setupCommander() {
       'Create a new git branch based on JIRA ticket information, git diff, or custom prompt',
     )
     .option('-j, --jira <ticket>', 'specify JIRA ticket ID or URL')
-    .option('-g, --git-diff', 'generate branch name based on current git diff')
+    .option('-g, --diff', 'generate branch name based on current git diff')
+    .option('--git-diff', 'alias of --diff')
     .option(
       '-p, --prompt <prompt>',
       'generate branch name based on custom prompt',
@@ -221,7 +222,7 @@ Examples:
     Create a branch named: feat/KB2CW-2684-description-from-ticket
     (Also accepts full JIRA URL)
 
-  $ git create-branch --git-diff
+  $ git create-branch --diff
     Create a branch named: fix/update-user-validation
     (Based on current git diff changes)
 
@@ -232,7 +233,7 @@ Examples:
   $ git create-branch --jira PROJ-123 --move
     Rename current branch to: feat/PROJ-123-add-login-page
 
-  $ git create-branch --git-diff --move
+  $ git create-branch --diff --move
     Rename current branch to: fix/update-user-validation
     (Based on current git diff changes)
 
@@ -263,6 +264,8 @@ interface CreateBranchOptions {
   /** provide a JIRA ticket ID to create a branch from the ticket */
   jira?: string
   /** provide a git diff to create a branch from the diff */
+  diff?: boolean
+  /** legacy alias of diff */
   gitDiff?: boolean
   /** provide a custom prompt to create a branch from the prompt */
   prompt?: string
@@ -280,26 +283,26 @@ async function main() {
 
       await checkGitCLI()
 
+      const useGitDiff = options.diff || options.gitDiff
+
       // Check if user provided one of the required options
-      const optionCount = [
-        options.jira,
-        options.gitDiff,
-        options.prompt,
-      ].filter(Boolean).length
+      const optionCount = [options.jira, useGitDiff, options.prompt].filter(
+        Boolean,
+      ).length
 
       if (optionCount === 0) {
         console.error(
-          'One of the following options is required: --jira, --git-diff, or --prompt',
+          'One of the following options is required: --jira, --diff, or --prompt',
         )
         console.error('Usage: git create-branch --jira PROJ-123')
-        console.error('   or: git create-branch --git-diff')
+        console.error('   or: git create-branch --diff')
         console.error('   or: git create-branch --prompt "description"')
         process.exit(1)
       }
 
       if (optionCount > 1) {
         console.error(
-          'Only one option can be used at a time: --jira, --git-diff, or --prompt',
+          'Only one option can be used at a time: --jira, --diff, or --prompt',
         )
         process.exit(1)
       }
@@ -310,7 +313,7 @@ async function main() {
 
       let branchName: string
 
-      if (options.gitDiff) {
+      if (useGitDiff) {
         // Generate branch name from git diff
         branchName = await generateBranchNameFromDiff()
       } else if (options.prompt) {

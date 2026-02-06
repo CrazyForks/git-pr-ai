@@ -13,7 +13,7 @@ git create-branch [OPTIONS]
 Three main modes available:
 
 - `--jira <ticket>` - Use JIRA ticket information
-- `--git-diff` - Analyze current uncommitted changes
+- `--diff` - Analyze current uncommitted changes
 - `--prompt <description>` - Use custom description
 
 ## Options
@@ -21,7 +21,8 @@ Three main modes available:
 | Option              | Description                                                |
 | ------------------- | ---------------------------------------------------------- |
 | `--jira <ticket>`   | Specify JIRA ticket ID or URL (e.g., PROJ-123 or full URL) |
-| `--git-diff`        | Generate branch name based on current git diff             |
+| `--diff`            | Generate branch name based on current git diff             |
+| `--git-diff`        | Legacy alias of `--diff` (backward compatibility)          |
 | `--prompt <prompt>` | Generate branch name based on custom prompt                |
 | `--move`, `-m`      | Rename current branch instead of creating a new one        |
 
@@ -51,7 +52,7 @@ git create-branch --jira PROJ-123
 
 ```bash
 # Analyze your uncommitted changes
-git create-branch --git-diff
+git create-branch --diff
 # → AI analyzes your staged/unstaged changes and generates options:
 #   1. feat/add-password-validation
 #   2. feat/implement-password-checks

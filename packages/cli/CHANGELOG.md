@@ -1,5 +1,24 @@
 # git-pr-ai
 
+## 1.15.1
+
+### Patch Changes
+
+- d0ec9d6: Replace Prettier with Oxfmt for repository formatting.
+  - Switch `format` and `format:check` scripts to `oxfmt`.
+  - Update `lint-staged` formatting commands to use `oxfmt --write`.
+  - Remove Prettier config/dependencies and add `.oxfmtrc.json`.
+
+- 500f4a8: Standardize `git create-branch` diff mode flag to `--diff`.
+  - Make `--diff` the primary option for diff-based branch naming in `git create-branch`.
+  - Keep `--git-diff` as a legacy alias for backward compatibility.
+  - Update command examples and usage docs to prefer `--diff`.
+
+- b678440: Fix GitHub fork workflow PR discovery for shared PR commands.
+  - Resolve current-branch PR by searching upstream first (then current repo) when working in a fork.
+  - Use explicit repository context when resolving PR details from URL/number to avoid wrong-repo lookups.
+  - Update `git update-pr-desc` GitHub instructions to use `gh pr edit <number> --repo <owner>/<repo> --body-file description.md`.
+
 ## 1.15.0
 
 ### Minor Changes

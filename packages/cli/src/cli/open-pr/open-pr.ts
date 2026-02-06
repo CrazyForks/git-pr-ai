@@ -61,6 +61,13 @@ async function main() {
       await checkGitCLI()
       const provider = await getCurrentProvider()
 
+      // Existing PR path should return fast and skip branch/JIRA work.
+      const existingPrUrl = await provider.checkExistingPR()
+      if (existingPrUrl) {
+        await provider.openPR()
+        return
+      }
+
       const currentBranch = await getCurrentBranch()
       let jiraTicket = options.jira || extractJiraTicket(currentBranch)
 
@@ -84,14 +91,6 @@ async function main() {
         }
       } else {
         console.log(`Branch: ${currentBranch}`)
-      }
-
-      // Check if PR already exists for current branch
-      const existingPrUrl = await provider.checkExistingPR()
-
-      if (existingPrUrl) {
-        await provider.openPR()
-        return
       }
 
       // Create new PR if none exists
